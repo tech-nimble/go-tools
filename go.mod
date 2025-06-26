@@ -23,7 +23,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rabbitmq/amqp091-go v1.10.0
 	github.com/rs/zerolog v1.33.0
-	github.com/tech-nimble/go-events v0.0.2
+	github.com/tech-nimble/go-events v0.0.3
 	github.com/tech-nimble/go-i18n v0.0.1
 	golang.org/x/text v0.21.0
 )

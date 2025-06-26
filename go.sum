@@ -429,8 +429,8 @@ github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o
 github.com/stretchr/testify v1.8.4/go.mod h1:sz/lmYIOXD/1dqDmKjjqLyZ2RngseejIcXlSw2iwfAo=
 github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
 github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
-github.com/tech-nimble/go-events v0.0.2 h1:PZZxvgAJFX7U7YHHNB6HKoSzaOekpbnRk60Sl/2Il4Y=
-github.com/tech-nimble/go-events v0.0.2/go.mod h1:P3HGwWwRmw68Rebcah9R/0/Rg+5oQuzcVHYRxBICi9Y=
+github.com/tech-nimble/go-events v0.0.3 h1:31zWZGIhgPylqanc4mbSmy/6K6Q6N23DWyTlkUEQe1k=
+github.com/tech-nimble/go-events v0.0.3/go.mod h1:VMhAiZeOTNqBrkn2k/jGUWXS52Zx+mXWcAY/HYRIZX8=
 github.com/tech-nimble/go-i18n v0.0.1 h1:JEJuqexEXpAFUoX/i51+MP7J3A8QHrgdLvXqcKv96Wg=
 github.com/tech-nimble/go-i18n v0.0.1/go.mod h1:MRDymZ7S9Qe/TzSDuyrwb/m4gcPE87FTp1B0954ktA0=
 github.com/twitchyliquid64/golang-asm v0.15.1 h1:SU5vSMR7hnwNxj24w34ZyCi/FmDZTkS4MhqMhdFk5YI=
