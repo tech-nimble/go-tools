@@ -1,0 +1,48 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - revive
+    - misspell
+    - gocritic
+    - bodyclose
+    - nilerr
+    - unconvert
+  settings:
+    misspell:
+      locale: US
+    gocritic:
+      enabled-tags:
+        - performance
+        - style
+      disabled-checks:
+        # zerolog.Logger and the value-type ErrHandler are passed by value on
+        # purpose (zerolog is designed for value semantics); flipping them to
+        # pointers would change the public API for no real benefit.
+        - hugeParam
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - errcheck
+          - gocritic
+          - revive # ginkgo/gomega rely on dot-imports in test files
+      # Legacy utility library: requiring a doc comment on every exported
+      # initializer would only add redundant "what" comments, which the project
+      # style discourages. Other revive checks stay active.
+      - linters:
+          - revive
+        text: "should have comment|should have a package comment|comment on exported"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
