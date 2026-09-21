@@ -86,18 +86,20 @@ func TestEverySpec(t *testing.T) {
 	tests := []struct {
 		name     string
 		interval time.Duration
+		fallback time.Duration
 		want     string
 	}{
-		{name: "positive interval", interval: 30 * time.Second, want: "@every 30s"},
-		{name: "zero falls back", interval: 0, want: "@every 5s"},
-		{name: "negative falls back", interval: -time.Second, want: "@every 5s"},
+		{name: "positive interval", interval: 30 * time.Second, fallback: time.Minute, want: "@every 30s"},
+		{name: "zero takes the fallback", interval: 0, fallback: time.Minute, want: "@every 1m0s"},
+		{name: "negative takes the fallback", interval: -time.Second, fallback: time.Minute, want: "@every 1m0s"},
+		{name: "no fallback lands on the default", interval: 0, fallback: 0, want: "@every 5s"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			require.Equal(t, tt.want, EverySpec(tt.interval))
+			require.Equal(t, tt.want, EverySpec(tt.interval, tt.fallback))
 		})
 	}
 }

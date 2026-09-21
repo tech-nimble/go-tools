@@ -154,10 +154,10 @@ func TestFailureTracker_Failed(t *testing.T) {
 			wantAlarmedAt: []bool{true},
 		},
 		{
-			name:          "zero limit falls back to default",
+			name:          "zero limit alarms on the first failure",
 			limit:         0,
-			errs:          []error{context.DeadlineExceeded, context.DeadlineExceeded, context.DeadlineExceeded},
-			wantAlarmedAt: []bool{false, false, true},
+			errs:          []error{context.DeadlineExceeded},
+			wantAlarmedAt: []bool{true},
 		},
 	}
 
@@ -203,11 +203,11 @@ func TestRegister_SingleTimeoutIsNotReportedAsError(t *testing.T) {
 
 	cronScheduler := cron.New()
 	Register(context.Background(), cronScheduler, Job{
-		Name:              "test.job",
-		Spec:              "0 3 * * *",
-		Timeout:           time.Minute,
-		Quiet:             true,
-		TransientFailures: 2,
+		Name:                "test.job",
+		Spec:                "0 3 * * *",
+		Timeout:             time.Minute,
+		Quiet:               true,
+		FailuresBeforeAlarm: 2,
 		Run: func(context.Context) error {
 			return fmt.Errorf("%w, while expiring offers", context.DeadlineExceeded)
 		},
@@ -225,4 +225,100 @@ func TestRegister_SingleTimeoutIsNotReportedAsError(t *testing.T) {
 	entries[0].Job.Run()
 	require.Contains(t, buf.String(), `"level":"error"`)
 	require.Contains(t, buf.String(), `"failuresInRow":2`)
+}
+
+func TestRunOnce(t *testing.T) {
+	t.Parallel()
+
+	jobErr := errors.New("broken query")
+
+	tests := []struct {
+		name    string
+		run     string
+		jobRun  func(context.Context) error
+		wantErr error
+		wantRan bool
+	}{
+		{
+			name:    "runs the named job",
+			run:     "test.job",
+			jobRun:  func(context.Context) error { return nil },
+			wantRan: true,
+		},
+		{
+			name:    "reports what the job returned",
+			run:     "test.job",
+			jobRun:  func(context.Context) error { return jobErr },
+			wantErr: jobErr,
+			wantRan: true,
+		},
+		{
+			name:    "unknown name is an error",
+			run:     "test.missing",
+			jobRun:  func(context.Context) error { return nil },
+			wantErr: ErrJobNotFound,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			var ran bool
+
+			err := RunOnce(context.Background(), tt.run, Job{
+				Name:    "test.job",
+				Spec:    "0 3 * * *",
+				Timeout: time.Minute,
+				Run: func(ctx context.Context) error {
+					ran = true
+
+					return tt.jobRun(ctx)
+				},
+			})
+
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, tt.wantRan, ran)
+		})
+	}
+}
+
+func TestRunOnce_UsesJobTimeout(t *testing.T) {
+	t.Parallel()
+
+	var (
+		deadline    time.Time
+		hasDeadline bool
+	)
+
+	err := RunOnce(context.Background(), "test.job", Job{
+		Name:    "test.job",
+		Spec:    "0 3 * * *",
+		Timeout: time.Minute,
+		Run: func(ctx context.Context) error {
+			deadline, hasDeadline = ctx.Deadline()
+
+			return nil
+		},
+	})
+
+	require.NoError(t, err)
+	require.True(t, hasDeadline)
+	require.WithinDuration(t, time.Now().Add(time.Minute), deadline, time.Minute)
+}
+
+func TestNames(t *testing.T) {
+	t.Parallel()
+
+	names := Names(
+		Job{Name: "first.job"},
+		Job{Name: "second.job"},
+	)
+
+	require.Equal(t, []string{"first.job", "second.job"}, names)
 }

@@ -4,6 +4,18 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/).
 
+## [1.2.0]
+
+### Added
+- `initializers/scheduler`: `RunOnce` and `Names`, so a service can run a single job from the
+  command line instead of waiting for its next tick.
+
+### Changed
+- `Job.TransientFailures` is now `Job.FailuresBeforeAlarm` and defaults to 1: a failure is
+  reported at error level straight away unless the job asks for more patience. Only frequent
+  jobs should raise it.
+- `EverySpec` takes the fallback interval from the caller instead of assuming five seconds.
+
 ## [1.1.1]
 
 ### Fixed

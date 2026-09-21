@@ -41,23 +41,31 @@ logger := logs.InitializeLogs(writer)  // initializers/logs — zerolog.Logger
 `internal/ports/cronjob`. A service only describes its jobs:
 
 ```go
+jobs := []scheduler.Job{{
+    Name:                "dispatch.expire_offers",
+    Spec:                scheduler.EverySpec(cfg.TickInterval, 5*time.Second),
+    Timeout:             10 * time.Second,
+    Quiet:               true,
+    FailuresBeforeAlarm: 3,
+    Run:                 func(ctx context.Context) error { return useCase.Execute(ctx) },
+}}
+
 cronScheduler := scheduler.Initialize()
-
-scheduler.Register(jobsCtx, cronScheduler, scheduler.Job{
-    Name:    "dispatch.expire_offers",
-    Spec:    scheduler.EverySpec(cfg.TickInterval),
-    Timeout: 10 * time.Second,
-    Quiet:   true,
-    Run:     func(ctx context.Context) error { return useCase.Execute(ctx) },
-})
-
+scheduler.Register(jobsCtx, cronScheduler, jobs...)
 cronScheduler.Start()
 ```
 
 The context passed to `Register` is the application's, not a request's: canceling it stops the
-jobs in flight. A job that fails with a timeout is logged at warning level and escalates to error
-after `TransientFailures` failures in a row (three by default), so a short database or network
-outage does not raise an alert that the next tick already cured.
+jobs in flight. The seconds field is optional, so `15 3 * * *` and `0 30 3 * * *` both register,
+and a job never runs twice at once.
+
+A failed job is reported at error level from the first failure. A job that ticks every few seconds
+can raise `FailuresBeforeAlarm`: the first failures are then logged at warning level and only a run
+of them escalates, so a short database outage that the next tick already cured does not raise an
+alert. A rare job leaves the field alone — three silent nights is worse than one noisy alert.
+
+`scheduler.RunOnce(ctx, name, jobs...)` runs one job outside its schedule, and `scheduler.Names`
+lists what a service declared: together they let a service expose its jobs on the command line.
 
 ## License
 

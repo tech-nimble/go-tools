@@ -32,8 +32,13 @@ func Initialize() *cron.Cron {
 }
 
 // EverySpec turns an interval into a cron spec. A non-positive interval means a broken
-// configuration, and it must not turn into a job running every second.
-func EverySpec(interval time.Duration) string {
+// configuration, and it must not turn into a job running every second, so the caller says what
+// to fall back to; a non-positive fallback lands on DefaultTickInterval.
+func EverySpec(interval, fallback time.Duration) string {
+	if interval <= 0 {
+		interval = fallback
+	}
+
 	if interval <= 0 {
 		interval = DefaultTickInterval
 	}

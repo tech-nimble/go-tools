@@ -6,6 +6,7 @@ package scheduler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,24 +14,25 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const (
-	// DefaultJobTimeout caps a job that does not set a limit of its own.
-	DefaultJobTimeout = 5 * time.Minute
+// DefaultJobTimeout caps a job that does not set a limit of its own.
+const DefaultJobTimeout = 5 * time.Minute
 
-	// DefaultTransientFailures is how many failures in a row a job survives quietly. A short
-	// outage of the database or the network is cured by the next tick, so an alert is only
-	// worth raising once the work has been stuck that many runs.
-	DefaultTransientFailures = 3
-)
+// ErrJobNotFound is returned when no job carries the requested name.
+var ErrJobNotFound = errors.New("job not found")
 
 // Job describes a scheduled task: when it runs, how long it may take and what it does.
+//
+// FailuresBeforeAlarm is how many failures in a row a frequent job survives at warning level: a
+// job ticking every few seconds recovers from a short database or network outage by itself, and
+// one timeout is not worth an alert. It stays 1 unless the job says otherwise, so a rare job
+// reports the very first failure — three silent nights of a nightly job is not a trade worth making.
 type Job struct {
-	Name              string
-	Spec              string
-	Timeout           time.Duration
-	Quiet             bool
-	TransientFailures int
-	Run               func(ctx context.Context) error
+	Name                string
+	Spec                string
+	Timeout             time.Duration
+	Quiet               bool
+	FailuresBeforeAlarm int
+	Run                 func(ctx context.Context) error
 }
 
 type failureTracker struct {
@@ -50,7 +52,7 @@ func Register(ctx context.Context, cronScheduler *cron.Cron, jobs ...Job) {
 
 func newFailureTracker(limit int) *failureTracker {
 	if limit <= 0 {
-		limit = DefaultTransientFailures
+		limit = 1
 	}
 
 	return &failureTracker{limit: limit}
@@ -74,18 +76,61 @@ func (t *failureTracker) succeeded() {
 	t.inRow = 0
 }
 
-func register(ctx context.Context, cronScheduler *cron.Cron, job Job) {
-	timeout := job.Timeout
-	if timeout <= 0 {
-		timeout = DefaultJobTimeout
+// Names lists the job names, in the order the service declared them.
+func Names(jobs ...Job) []string {
+	names := make([]string, 0, len(jobs))
+	for _, job := range jobs {
+		names = append(names, job.Name)
 	}
 
-	tracker := newFailureTracker(job.TransientFailures)
+	return names
+}
 
-	if _, err := cronScheduler.AddFunc(job.Spec, func() {
-		jobCtx, cancel := context.WithTimeout(ctx, timeout)
+// RunOnce runs a single job by name, outside of any schedule, and reports what it returned. It
+// exists so a service can try a job from the command line instead of waiting for its next tick.
+func RunOnce(ctx context.Context, name string, jobs ...Job) error {
+	for _, job := range jobs {
+		if job.Name != name {
+			continue
+		}
+
+		jobCtx, cancel := context.WithTimeout(ctx, jobTimeout(job))
 		defer cancel()
 
+		log.Info().Str("op", job.Name).Str("phase", "start").Msg("cron: job started once")
+
+		if err := job.Run(jobCtx); err != nil {
+			log.Error().Err(err).
+				Str("op", job.Name).
+				Str("phase", "end").
+				Str("result", "failed").
+				Msg("cron: job failed")
+
+			return fmt.Errorf("%w, while running job %s", err, job.Name)
+		}
+
+		log.Info().Str("op", job.Name).Str("phase", "end").Str("result", "success").Msg("cron: job finished")
+
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s", ErrJobNotFound, name)
+}
+
+func jobTimeout(job Job) time.Duration {
+	if job.Timeout <= 0 {
+		return DefaultJobTimeout
+	}
+
+	return job.Timeout
+}
+
+func register(ctx context.Context, cronScheduler *cron.Cron, job Job) {
+	tracker := newFailureTracker(job.FailuresBeforeAlarm)
+
+	if _, err := cronScheduler.AddFunc(job.Spec, func() {
+		jobCtx, cancel := context.WithTimeout(ctx, jobTimeout(job))
+		defer cancel()
 		if !job.Quiet {
 			log.Info().Str("op", job.Name).Str("phase", "start").Msg("cron: job started")
 		}
