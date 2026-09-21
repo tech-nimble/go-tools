@@ -15,12 +15,18 @@ const DefaultTickInterval = 5 * time.Second
 
 type cronLogger struct{}
 
-// Initialize builds a scheduler that understands seconds in a cron spec and never starts a second
-// copy of a job that is still running: a task ticking every few seconds would otherwise overlap
-// itself and process the same rows twice.
+// Initialize builds a scheduler that never starts a second copy of a job that is still running:
+// a task ticking every few seconds would otherwise overlap itself and process the same rows twice.
+//
+// The seconds field is optional, so both "15 3 * * *" and "0 30 3 * * *" are valid specs and a
+// service is free to schedule a job below the minute without rewriting the rest of its specs.
 func Initialize() *cron.Cron {
+	parser := cron.NewParser(
+		cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow | cron.Descriptor,
+	)
+
 	return cron.New(
-		cron.WithSeconds(),
+		cron.WithParser(parser),
 		cron.WithChain(cron.SkipIfStillRunning(cronLogger{})),
 	)
 }

@@ -4,6 +4,12 @@ All notable changes to this package are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project follows
 [Semantic Versioning](https://semver.org/).
 
+## [1.1.1]
+
+### Fixed
+- `initializers/scheduler`: the seconds field is optional again, so a five-field spec such as
+  `15 3 * * *` registers alongside `0 30 3 * * *`.
+
 ## [1.1.0]
 
 ### Added

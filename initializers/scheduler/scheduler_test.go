@@ -50,6 +50,36 @@ func TestInitialize_SupportsSecondsAndSkipsOverlap(t *testing.T) {
 	require.Less(t, runs.Load(), int32(3))
 }
 
+func TestInitialize_AcceptsSpecsWithAndWithoutSeconds(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		spec string
+	}{
+		{name: "five fields", spec: "15 3 * * *"},
+		{name: "six fields", spec: "0 30 3 * * *"},
+		{name: "descriptor", spec: "@every 30s"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			cronScheduler := Initialize()
+			Register(context.Background(), cronScheduler, Job{
+				Name:    "test.job",
+				Spec:    tt.spec,
+				Timeout: time.Minute,
+				Quiet:   true,
+				Run:     func(context.Context) error { return nil },
+			})
+
+			require.Len(t, cronScheduler.Entries(), 1)
+		})
+	}
+}
+
 func TestEverySpec(t *testing.T) {
 	t.Parallel()
 
