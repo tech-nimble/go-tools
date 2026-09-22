@@ -4,6 +4,8 @@
 *.test
 /dist/
 /bin/
+tmp/
+temp/
 
 # Coverage
 coverage.out
